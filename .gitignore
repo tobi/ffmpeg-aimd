@@ -1,0 +1,12 @@
+/target/
+/target-*/
+/hevc-output/
+/hevc-large-output/
+/minipc-output/
+/minipc-full-output/
+/comparison/
+*.mp4
+*.ld
+*.ldx
+*.png
+*.webp
