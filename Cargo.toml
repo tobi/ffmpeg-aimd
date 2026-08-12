@@ -1,6 +1,6 @@
 [package]
-name = "aimd-reducer"
-version = "0.1.0"
+name = "ffmpeg-aimd"
+version = "0.1.1"
 edition = "2021"
 rust-version = "1.84"
 description = "Native FFmpeg GPU reducer that preserves AiM AIMD telemetry in MP4 and MoTeC sidecars"

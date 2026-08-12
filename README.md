@@ -22,13 +22,13 @@ cargo build --release
 With no paths, the utility scans `~/Documents/upload` and writes to `reduced/`:
 
 ```sh
-./target/release/aimd-reducer
+./target/release/ffmpeg-aimd
 ```
 
 Reduce a file to 720p HEVC at 1800 kb/s while keeping the source FPS:
 
 ```sh
-./target/release/aimd-reducer \
+./target/release/ffmpeg-aimd \
   --res 720 \
   --bitrate 1800 \
   --output-dir ./reduced \
@@ -38,26 +38,26 @@ Reduce a file to 720p HEVC at 1800 kb/s while keeping the source FPS:
 Lower the frame rate as well:
 
 ```sh
-./target/release/aimd-reducer --fps 30 --res 720 --bitrate 1500 input.MP4
+./target/release/ffmpeg-aimd --fps 30 --res 720 --bitrate 1500 input.MP4
 ```
 
 Trim a range. Times accept seconds, `MM:SS`, or `HH:MM:SS`:
 
 ```sh
-./target/release/aimd-reducer 00:10 02:30 input.MP4
+./target/release/ffmpeg-aimd 00:10 02:30 input.MP4
 ```
 
 Force CPU `libx264` only when hardware encoding is unavailable:
 
 ```sh
-./target/release/aimd-reducer --cpu input.MP4
+./target/release/ffmpeg-aimd --cpu input.MP4
 ```
 
 Extract telemetry without transcoding. With no output argument, hidden sidecars are created beside the input:
 
 ```sh
-./target/release/aimd-reducer --extract-motec input.MP4
-./target/release/aimd-reducer --extract-motec input.MP4 output.ld
+./target/release/ffmpeg-aimd --extract-motec input.MP4
+./target/release/ffmpeg-aimd --extract-motec input.MP4 output.ld
 ```
 
 Use `--overwrite` to replace existing outputs.

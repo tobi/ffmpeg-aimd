@@ -414,7 +414,7 @@ fn is_mp4(path: &Path) -> bool {
 
 fn print_usage() {
     println!(
-        "Usage: aimd-reducer [OPTIONS] [FROM TO] FILE_OR_DIR ...\n\n\
+        "Usage: ffmpeg-aimd [OPTIONS] [FROM TO] FILE_OR_DIR ...\n\n\
          Defaults: ~/Documents/upload -> ./reduced, 720p, 3000 kb/s, source FPS\n\n\
          Options:\n\
            --res N             output height (default 720; must be even)\n\
@@ -1719,7 +1719,7 @@ mod tests {
         ]
         .concat();
         let directory = std::env::temp_dir();
-        let stem = format!("aimd-reducer-test-{}", std::process::id());
+        let stem = format!("ffmpeg-aimd-test-{}", std::process::id());
         let source_path = directory.join(format!("{stem}-source.mp4"));
         let input_path = directory.join(format!("{stem}-input.mp4"));
         let output_path = directory.join(format!("{stem}-output.mp4"));
