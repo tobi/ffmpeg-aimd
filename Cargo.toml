@@ -11,6 +11,5 @@ homepage = "https://github.com/tobi/ffmpeg-aimd"
 [dependencies]
 ffmpeg-next = "9.0"
 motorsport-telemetry = { git = "https://github.com/tobi/motorsport-telemetry-rs", rev = "534f9fd48825938e20b69a577c27d1fd4a715a79", package = "motorsport-telemetry" }
-motec-telemetry = { git = "https://github.com/tobi/motorsport-telemetry-rs", rev = "534f9fd48825938e20b69a577c27d1fd4a715a79", package = "motec-telemetry" }
 telemetry-format = { git = "https://github.com/tobi/motorsport-telemetry-rs", rev = "534f9fd48825938e20b69a577c27d1fd4a715a79", package = "telemetry-format" }
 memmap2 = "0.9"

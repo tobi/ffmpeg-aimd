@@ -140,7 +140,6 @@ version = "0.1.2"
 dependencies = [
  "ffmpeg-next",
  "memmap2",
- "motec-telemetry",
  "motorsport-telemetry",
  "telemetry-format",
 ]
