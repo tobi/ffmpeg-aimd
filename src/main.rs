@@ -1,11 +1,7 @@
 use ffmpeg::{codec, format, frame, media, Rational};
 use ffmpeg_next as ffmpeg;
 use memmap2::{Mmap, MmapOptions};
-use motec_telemetry::{write_motec, MotecMetadata};
-use motorsport_telemetry::{
-    motorsport_telemetry_core::{Channel, TelemetrySource},
-    open,
-};
+use motorsport_telemetry::open;
 use std::error::Error;
 use std::ffi::CString;
 use std::fs::{self, File};
@@ -32,7 +28,7 @@ struct Config {
     bitrate_kbps: u32,
     fps: Option<Rational>,
     range: Option<TimeRange>,
-    extract_motec: bool,
+    extract_telemetry: bool,
     extract_output: Option<PathBuf>,
     overwrite: bool,
     cpu_force: bool,
@@ -74,8 +70,8 @@ fn boxed(message: impl Into<String>) -> Box<dyn Error> {
 
 fn main() -> Result<(), Box<dyn Error>> {
     let config = parse_args(std::env::args_os().skip(1))?;
-    if config.extract_motec {
-        return extract_motec_files(&config);
+    if config.extract_telemetry {
+        return extract_telemetry_files(&config);
     }
     ffmpeg::init().map_err(|error| boxed(format!("initialising FFmpeg: {error}")))?;
     let inputs = discover_inputs(&config.inputs)?;
@@ -115,7 +111,7 @@ where
     let mut height = DEFAULT_HEIGHT;
     let mut bitrate_kbps = DEFAULT_BITRATE_KBPS;
     let mut fps = None;
-    let mut extract_motec = false;
+    let mut extract_telemetry = false;
     let mut overwrite = false;
     let mut cpu_force = false;
     let mut args = args.into_iter();
@@ -129,8 +125,8 @@ where
             cpu_force = true;
         } else if text == "--overwrite" {
             overwrite = true;
-        } else if text == "--extract-motec" {
-            extract_motec = true;
+        } else if text == "--extract-telemetry" {
+            extract_telemetry = true;
         } else if let Some(value) = text.strip_prefix("--res=") {
             height = parse_positive(value, "--res")?;
         } else if text == "--res" {
@@ -159,7 +155,7 @@ where
 
     let mut range = None;
     let mut extract_output = None;
-    let inputs = if extract_motec {
+    let inputs = if extract_telemetry {
         match positionals.as_slice() {
             [] => vec![expand_home(Path::new(DEFAULT_INPUT_DIR))],
             [input] => vec![input.clone()],
@@ -169,7 +165,7 @@ where
             }
             _ => {
                 return Err(boxed(
-                    "--extract-motec accepts one input and an optional output filename",
+                    "--extract-telemetry accepts one input and an optional output filename",
                 ))
             }
         }
@@ -198,7 +194,7 @@ where
         bitrate_kbps,
         fps,
         range,
-        extract_motec,
+        extract_telemetry,
         extract_output,
         overwrite,
         cpu_force,
@@ -299,12 +295,12 @@ fn parse_time(path: &Path) -> Result<f64, Box<dyn Error>> {
     Ok(seconds)
 }
 
-fn extract_motec_files(config: &Config) -> Result<(), Box<dyn Error>> {
+fn extract_telemetry_files(config: &Config) -> Result<(), Box<dyn Error>> {
     let inputs = discover_inputs(&config.inputs)?;
     if let Some(output) = &config.extract_output {
         if inputs.len() != 1 {
             return Err(boxed(
-                "an explicit --extract-motec output requires exactly one input",
+                "an explicit --extract-telemetry output requires exactly one input",
             ));
         }
         if let Some(parent) = output
@@ -319,9 +315,8 @@ fn extract_motec_files(config: &Config) -> Result<(), Box<dyn Error>> {
         let target = config
             .extract_output
             .clone()
-            .unwrap_or_else(|| sidecar_paths(&input).ld);
-        let target_ldx = motec_telemetry::motec_sidecar_path(&target);
-        if !config.overwrite && (target.exists() || target_ldx.exists()) {
+            .unwrap_or_else(|| telemetry_sidecar_path(&input));
+        if !config.overwrite && target.exists() {
             eprintln!("{}: output exists (use --overwrite)", input.display());
             failures.push(input);
             continue;
@@ -330,29 +325,20 @@ fn extract_motec_files(config: &Config) -> Result<(), Box<dyn Error>> {
         let temp = target
             .parent()
             .unwrap_or(Path::new("."))
-            .join(format!(".{filename}.tmp.ld"));
-        let temp_ldx = motec_telemetry::motec_sidecar_path(&temp);
+            .join(format!(".{filename}.tmp"));
         remove_if_exists(&temp)?;
-        remove_if_exists(&temp_ldx)?;
         let result = (|| {
             let source = open(&input)?;
-            write_sidecars(&source, &temp)?;
+            telemetry_format::write_from_source(&source, &temp)?;
             fs::rename(&temp, &target)?;
-            fs::rename(&temp_ldx, &target_ldx)?;
             Ok::<(), Box<dyn Error>>(())
         })();
         if let Err(error) = result {
             let _ = remove_if_exists(&temp);
-            let _ = remove_if_exists(&temp_ldx);
             eprintln!("{}: {error}", input.display());
             failures.push(input);
         } else {
-            println!(
-                "{} -> {} (+ {})",
-                input.display(),
-                target.display(),
-                target_ldx.display()
-            );
+            println!("{} -> {}", input.display(), target.display());
         }
     }
     if failures.is_empty() {
@@ -421,13 +407,13 @@ fn print_usage() {
            --bitrate N[k]      H.264 bitrate in kb/s (default 3000)\n\
            --fps N[.N|/N]      output FPS (default keeps source rate)\n\
            --output-dir DIR    output directory (default reduced beside input)\n\
-           --extract-motec     write AIMD to LD/LDX; use FILE [OUTPUT.ld]\n\
+           --extract-telemetry write native .telemetry; use FILE [OUTPUT]\n\
            --cpu               force CPU libx264 instead of hardware encoding\n\
-           --overwrite         replace existing output and sidecars\n\
+           --overwrite         replace existing output and telemetry sidecar\n\
          FROM and TO are seconds, MM:SS, or HH:MM:SS. The output selects\n\
          the best available VAAPI H.264/HEVC encoder.\n\
          AIMD is retained by atom-level MP4 track splicing and exported as\n\
-         hidden .<output>.ld/.ldx sidecars."
+         hidden .<output>.telemetry sidecar."
     );
 }
 
@@ -437,9 +423,9 @@ fn process_one(
     config: &Config,
 ) -> Result<PathBuf, Box<dyn Error>> {
     let output = output_path(input, output_dir, config.height);
-    let sidecar = sidecar_paths(&output);
+    let sidecar = telemetry_sidecar_path(&output);
     if !config.overwrite {
-        for path in [&output, &sidecar.ld, &sidecar.ldx] {
+        for path in [&output, &sidecar] {
             if path.exists() {
                 return Err(boxed(format!(
                     "output exists (use --overwrite): {}",
@@ -451,37 +437,31 @@ fn process_one(
 
     let temp_video = sibling_temp(&output, "video");
     let temp_mp4 = sibling_temp(&output, "spliced");
-    let temp_ld = output.parent().unwrap_or(Path::new(".")).join(format!(
-        ".{}.tmp.ld",
-        output.file_name().unwrap().to_string_lossy()
+    let temp_telemetry = sidecar.with_file_name(format!(
+        ".{}.tmp",
+        sidecar.file_name().unwrap().to_string_lossy()
     ));
-    let temp_ldx = temp_ld.with_extension("ldx");
     remove_if_exists(&temp_video)?;
     remove_if_exists(&temp_mp4)?;
-    remove_if_exists(&temp_ld)?;
-    remove_if_exists(&temp_ldx)?;
+    remove_if_exists(&temp_telemetry)?;
 
     let result = (|| {
-        // Parse the source, never the FFmpeg output: FFmpeg's MP4 muxer does
-        // not understand timed AIMD metadata and can silently omit it.
         let telemetry = open(input)?;
         transcode(input, &temp_video, config)
             .map_err(|error| boxed(format!("transcode: {error}")))?;
         splice_aimd_track(input, &temp_video, &temp_mp4)
             .map_err(|error| boxed(format!("splice AIMD: {error}")))?;
-        write_sidecars(&telemetry, &temp_ld)
-            .map_err(|error| boxed(format!("write MoTeC sidecar: {error}")))?;
+        telemetry_format::write_from_source(&telemetry, &temp_telemetry)
+            .map_err(|error| boxed(format!("write native telemetry: {error}")))?;
         fs::rename(&temp_mp4, &output)?;
-        fs::rename(&temp_ld, &sidecar.ld)?;
-        fs::rename(&temp_ldx, &sidecar.ldx)?;
+        fs::rename(&temp_telemetry, &sidecar)?;
         Ok::<(), Box<dyn Error>>(())
     })();
 
     if result.is_err() {
         remove_if_exists(&temp_video)?;
         remove_if_exists(&temp_mp4)?;
-        remove_if_exists(&temp_ld)?;
-        remove_if_exists(&temp_ldx)?;
+        remove_if_exists(&temp_telemetry)?;
     }
     result.map(|()| output)
 }
@@ -494,19 +474,10 @@ fn output_path(input: &Path, output_dir: &Path, height: u32) -> PathBuf {
     output_dir.join(format!("{stem}_{height}p.mp4"))
 }
 
-#[derive(Debug)]
-struct SidecarPaths {
-    ld: PathBuf,
-    ldx: PathBuf,
-}
-
-fn sidecar_paths(output: &Path) -> SidecarPaths {
+fn telemetry_sidecar_path(output: &Path) -> PathBuf {
     let directory = output.parent().unwrap_or(Path::new("."));
     let filename = output.file_name().unwrap().to_string_lossy();
-    SidecarPaths {
-        ld: directory.join(format!(".{filename}.ld")),
-        ldx: directory.join(format!(".{filename}.ldx")),
-    }
+    directory.join(format!(".{filename}.telemetry"))
 }
 
 fn sibling_temp(path: &Path, tag: &str) -> PathBuf {
@@ -1142,110 +1113,6 @@ fn is_again(error: &ffmpeg::Error) -> bool {
     matches!(error, ffmpeg::Error::Other { errno } if *errno == ffmpeg::error::EAGAIN)
 }
 
-fn write_sidecars(
-    source: &motorsport_telemetry::TelemetryFile,
-    path: &Path,
-) -> Result<(), Box<dyn Error>> {
-    let metadata = source.metadata();
-    let identity = metadata.identity;
-    let (adapted, adjusted_channels) = MotecSource::new(source)?;
-    if adjusted_channels > 0 {
-        eprintln!(
-            "{}: rounded sample rates on {adjusted_channels} AIMD channel(s) because MoTeC LD stores integer Hz",
-            source.path()
-        );
-    }
-    let motec_metadata = MotecMetadata {
-        driver: identity.driver,
-        vehicle: identity.vehicle,
-        venue: identity.venue,
-        event: identity.event,
-        session: identity.session,
-        date: identity.date,
-        time: identity.time,
-        event_comment: "Exported from source AIMD track; sample values unchanged".to_owned(),
-        ..Default::default()
-    };
-    write_motec(&adapted, &motec_metadata, path)?;
-    Ok(())
-}
-
-struct MotecSource<'a> {
-    source: &'a motorsport_telemetry::TelemetryFile,
-    channels: Vec<Channel>,
-}
-
-impl<'a> MotecSource<'a> {
-    fn new(
-        source: &'a motorsport_telemetry::TelemetryFile,
-    ) -> Result<(Self, usize), Box<dyn Error>> {
-        let mut adjusted = 0;
-        let mut channels = source.channels().to_vec();
-        for channel in &mut channels {
-            let Some(first) = channel.chunks.first() else {
-                continue;
-            };
-            if first.sample_period_ns == 0 {
-                return Err(boxed(format!(
-                    "AIMD channel {:?} has a zero sample period",
-                    channel.name
-                )));
-            }
-            let target = 1_000_000_000.0 / first.sample_period_ns as f64;
-            let frequency = (1..=u16::MAX as u64)
-                .filter(|frequency| 1_000_000_000u64 % frequency == 0)
-                .min_by(|left, right| {
-                    let left_error = ((*left as f64) - target).abs();
-                    let right_error = ((*right as f64) - target).abs();
-                    left_error
-                        .partial_cmp(&right_error)
-                        .unwrap_or(std::cmp::Ordering::Equal)
-                })
-                .ok_or_else(|| {
-                    boxed(format!(
-                        "AIMD channel {:?} has an unrepresentable sample rate",
-                        channel.name
-                    ))
-                })?;
-            let period = 1_000_000_000 / frequency;
-            let mut next_time = first.time_base_ns;
-            let mut channel_adjusted = false;
-            for chunk in &mut channel.chunks {
-                if chunk.sample_period_ns != period || chunk.time_base_ns != next_time {
-                    channel_adjusted = true;
-                }
-                chunk.sample_period_ns = period;
-                chunk.time_base_ns = next_time;
-                next_time = next_time.saturating_add(chunk.sample_count.saturating_mul(period));
-            }
-            adjusted += usize::from(channel_adjusted);
-        }
-        Ok((Self { source, channels }, adjusted))
-    }
-}
-
-impl TelemetrySource for MotecSource<'_> {
-    fn path(&self) -> &str {
-        self.source.path()
-    }
-
-    fn format(&self) -> &'static str {
-        self.source.format()
-    }
-
-    fn channels(&self) -> &[Channel] {
-        &self.channels
-    }
-
-    fn decode(&self, channel_index: usize, chunk_index: usize, local_index: u64) -> f64 {
-        self.source.decode(channel_index, chunk_index, local_index)
-    }
-
-    fn sample_time_ns(&self, channel_index: usize, chunk_index: usize, local_index: u64) -> u64 {
-        let chunk = &self.channels[channel_index].chunks[chunk_index];
-        chunk.time_base_ns + local_index * chunk.sample_period_ns
-    }
-}
 fn map_file(path: &Path) -> Result<Mmap, Box<dyn Error>> {
     let file = File::open(path)?;
     // The mapping is read-only and lives no longer than the returned file view.

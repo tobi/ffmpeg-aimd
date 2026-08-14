@@ -6,7 +6,6 @@
 /minipc-full-output/
 /comparison/
 *.mp4
-*.ld
-*.ldx
+*.telemetry
 *.png
 *.webp

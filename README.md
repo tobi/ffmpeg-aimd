@@ -1,6 +1,6 @@
 # ffmpeg-aimd
 
-Native Rust video reduction for AiM SmartyCam MP4 files. It uses FFmpeg bindings for hardware encoding, preserves the embedded `aimd` telemetry track by atom-level MP4 splicing, and exports the telemetry to MoTeC LD/LDX sidecars.
+Native Rust video reduction for AiM SmartyCam MP4 files. It uses FFmpeg bindings for hardware encoding, preserves the embedded `aimd` telemetry track by atom-level MP4 splicing, and writes one complete native `.telemetry` sidecar.
 
 ## Requirements
 
@@ -53,25 +53,24 @@ Force CPU `libx264` only when hardware encoding is unavailable:
 ./target/release/ffmpeg-aimd --cpu input.MP4
 ```
 
-Extract telemetry without transcoding. With no output argument, hidden sidecars are created beside the input:
+Extract telemetry without transcoding. With no output argument, a hidden native `.telemetry` sidecar is created beside the input:
 
 ```sh
-./target/release/ffmpeg-aimd --extract-motec input.MP4
-./target/release/ffmpeg-aimd --extract-motec input.MP4 output.ld
+./target/release/ffmpeg-aimd --extract-telemetry input.MP4
+./target/release/ffmpeg-aimd --extract-telemetry input.MP4 output.telemetry
 ```
 
 Use `--overwrite` to replace existing outputs.
 
 ## Outputs
 
-For `input.MP4`, a reduced output named `input_720p.mp4` is created. Its companion files are:
+For `input.MP4`, a reduced output named `input_720p.mp4` is created. Its companion file is:
 
 ```text
-.input_720p.mp4.ld
-.input_720p.mp4.ldx
+.input_720p.mp4.telemetry
 ```
 
-The MP4 contains the transcoded video, copied audio, and the original AIMD track. FFmpeg does not understand AiM timed metadata itself, so the AIMD `trak` and its sample payload are copied and offset-patched after FFmpeg finishes. The MoTeC writer keeps AIMD sample values and counts; MoTeC LD requires integer, contiguous sample rates, so incompatible source timing is rounded and reported.
+The MP4 contains the transcoded video, copied audio, and the original AIMD track. FFmpeg does not understand AiM timed metadata itself, so the AIMD `trak` and its sample payload are copied and offset-patched after FFmpeg finishes. The native `.telemetry` writer stores the complete source recording, including native channel timing, metadata, laps, and video linkage. No LD/LDX conversion or timing rounding is performed.
 
 ## Hardware selection
 
@@ -90,7 +89,7 @@ cargo check
 cargo test
 ```
 
-The test suite includes an MP4 atom-splicing check. `omatrack-cli parse` can verify both the converted MP4 and generated `.ld` sidecar.
+The test suite includes an MP4 atom-splicing check. `omatrack-cli parse` can verify the converted MP4 and native `.telemetry` sidecar.
 
 ## License
 

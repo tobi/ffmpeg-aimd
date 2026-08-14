@@ -1,15 +1,16 @@
 [package]
 name = "ffmpeg-aimd"
-version = "0.1.1"
+version = "0.1.2"
 edition = "2021"
 rust-version = "1.84"
-description = "Native FFmpeg GPU reducer that preserves AiM AIMD telemetry in MP4 and MoTeC sidecars"
+description = "Native FFmpeg GPU reducer that preserves AiM AIMD telemetry in MP4 and native telemetry sidecars"
 license = "MIT"
 repository = "https://github.com/tobi/ffmpeg-aimd"
 homepage = "https://github.com/tobi/ffmpeg-aimd"
 
 [dependencies]
 ffmpeg-next = "9.0"
-motorsport-telemetry = { git = "https://github.com/tobi/motorsport-telemetry-rs", rev = "b7059fce9a0107a8efea2623e62a256809c20b36", package = "motorsport-telemetry" }
-motec-telemetry = { git = "https://github.com/tobi/motorsport-telemetry-rs", rev = "b7059fce9a0107a8efea2623e62a256809c20b36", package = "motec-telemetry" }
+motorsport-telemetry = { git = "https://github.com/tobi/motorsport-telemetry-rs", rev = "534f9fd48825938e20b69a577c27d1fd4a715a79", package = "motorsport-telemetry" }
+motec-telemetry = { git = "https://github.com/tobi/motorsport-telemetry-rs", rev = "534f9fd48825938e20b69a577c27d1fd4a715a79", package = "motec-telemetry" }
+telemetry-format = { git = "https://github.com/tobi/motorsport-telemetry-rs", rev = "534f9fd48825938e20b69a577c27d1fd4a715a79", package = "telemetry-format" }
 memmap2 = "0.9"
